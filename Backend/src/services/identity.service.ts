@@ -13,7 +13,7 @@ export const addDataService = async (email: string, phoneNumber: string) => {
             }
         })
 
-        if (!contactInDB) {
+        if (contactInDB.length === 0) {
             const newEntry = await prisma.contact.create({
                 data: {
                     email,
@@ -40,12 +40,9 @@ export const addDataService = async (email: string, phoneNumber: string) => {
 
         if (primaryContacts.length === 1) {
             const secondaryContact = await prisma.contact.create({
-                // where: {
-                //     id: primary.id
-                // },
                 data: {
-                    email: (email !== primary.email ? email : primary.email),
-                    phoneNumber: (phoneNumber !== primary.phoneNumber ? phoneNumber : primary.phoneNumber),
+                    email,
+                    phoneNumber,
                     linkedId: primary.id,
                     linkPrecedence: 'secondary'
                 }
@@ -59,8 +56,52 @@ export const addDataService = async (email: string, phoneNumber: string) => {
             }
         }
 
+        //multiple primary contacts case merge the later ones
+        const remainingPrimaries = primaryContacts.slice(1);
 
+        for (const remPrimary of remainingPrimaries) {
+            await prisma.contact.update({
+                where: {
+                    id: remPrimary.id
+                },
+                data: {
+                    linkedId: primary.id,
+                    linkPrecedence: 'secondary'
+                }
+            })
+        }
 
+        await prisma.contact.updateMany({
+            where: {
+                linkedId: {
+                    in: remainingPrimaries.map((p) => p.id)
+                }
+            },
+            data: {
+                linkedId: primary.id
+            }
+        })
+
+        const updatedData = await prisma.contact.findMany({
+            where: {
+                OR: [
+                    { id: primary.id },
+                    { linkedId: primary.id }
+                ]
+            }
+        })
+
+        const mergedEmails = [...new Set(updatedData.map(c => c.email).filter(Boolean))]
+        const mergedPhoneNumbers = [...new Set(updatedData.map(c => c.phoneNumber).filter(Boolean))]
+        const mergedSecondaryContactIds =
+            updatedData.filter(c => c.linkPrecedence === "secondary").map(c => c.id)
+
+        return {
+            primaryContactId: primary.id,
+            emails: mergedEmails,
+            phoneNumbers: mergedPhoneNumbers,
+            secondaryContactIds: mergedSecondaryContactIds
+        }
 
     } catch (error) {
         console.log(error);
