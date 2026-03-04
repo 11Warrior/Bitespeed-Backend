@@ -1,3 +1,4 @@
+import { Contact } from "@prisma/client";
 import { prisma } from "../db/prisma";
 export const addDataService = async (email: string, phoneNumber: string) => {
     try {
@@ -29,8 +30,7 @@ export const addDataService = async (email: string, phoneNumber: string) => {
             }
         }
 
-        //contact exists linking needs to be done after the step
-        const primaryContacts = contactInDB.filter(contact => contact.linkPrecedence === 'primary')
+        const primaryContacts = contactInDB.filter((contact: Contact) => contact.linkPrecedence === 'primary')
 
         const primary = primaryContacts[0];
 
@@ -57,7 +57,7 @@ export const addDataService = async (email: string, phoneNumber: string) => {
             await prisma.contact.updateMany({
                 where: {
                     linkedId: {
-                        in: remainingPrimaries.map((p) => p.id)
+                        in: remainingPrimaries.map((p: Contact) => p.id)
                     }
                 },
                 data: {
@@ -93,10 +93,10 @@ export const addDataService = async (email: string, phoneNumber: string) => {
             }
         })
 
-        const mergedEmails = [...new Set(updatedData.map(c => c.email).filter(Boolean))]
-        const mergedPhoneNumbers = [...new Set(updatedData.map(c => c.phoneNumber).filter(Boolean))]
+        const mergedEmails = [...new Set(updatedData.map((c: Contact) => c.email).filter(Boolean))]
+        const mergedPhoneNumbers = [...new Set(updatedData.map((c: Contact) => c.phoneNumber).filter(Boolean))]
         const mergedSecondaryContactIds =
-            updatedData.filter(c => c.linkPrecedence === "secondary").map(c => c.id)
+            updatedData.filter((c: Contact) => c.linkPrecedence === "secondary").map((c: Contact) => c.id)
 
         return {
             primaryContactId: primary.id,
